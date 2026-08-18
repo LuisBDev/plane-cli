@@ -224,6 +224,9 @@ async def list_(
     parent: str | None = None,
     sort: str = "created",
     limit: Annotated[int, Parameter(alias="-l")] = 50,
+    since: Annotated[str | None, Parameter(alias="-s")] = None,
+    until: Annotated[str | None, Parameter(alias="-u")] = None,
+    person: str | None = None,
     json: bool = False,
 ) -> None:
     """List work items.
@@ -234,6 +237,8 @@ async def list_(
         Project name, identifier, or UUID. If omitted, lists from all projects.
     assignee
         Filter by assignee name or 'me'.
+    person
+        Filter by items where this user is assignee OR creator (reporte de equipo).
     state
         Filter by state name (comma-separated).
     labels
@@ -245,6 +250,10 @@ async def list_(
         Sort by: created (default), updated.
     limit
         Maximum results to show.
+    since
+        Only items active or created from this date (YYYY-MM-DD, inclusive).
+    until
+        Only items active or created up to this date (YYYY-MM-DD, inclusive).
     """
     try:
         client = get_client()
@@ -347,6 +356,22 @@ async def list_(
             )
         ]
 
+    # Filter by person (assignee OR creator) — reporte de equipo sin pérdida de data
+    if person:
+        user = await resolve_user_async(person, client, workspace)
+        user_id = user["id"]
+        data = [
+            d for d in data
+            if (
+                user_id in (d.get("assignees") or [])
+                or any(
+                    (isinstance(a, dict) and a.get("id") == user_id)
+                    for a in (d.get("assignees") or [])
+                )
+            )
+            or d.get("created_by") == user_id
+        ]
+
     # Filter by state (comma-separated, OR logic, substring match)
     if state:
         state_tokens = [s.strip().lower() for s in state.split(",") if s.strip()]
@@ -390,6 +415,27 @@ async def list_(
                     for name in (d.get("label_detail_names") or [])
                 )
             ]
+
+    # Filter by date range (overlap with start_date/target_date OR created within)
+    if since or until:
+        since_date = since or "0000-01-01"
+        until_date = until or "9999-12-31"
+
+        def _in_range(item: dict) -> bool:
+            created = (item.get("created_at") or "")[:10]
+            if since_date <= created <= until_date:
+                return True
+            start = item.get("start_date") or ""
+            target = item.get("target_date") or ""
+            if start and target:
+                return start <= until_date and target >= since_date
+            if start:
+                return start <= until_date
+            if target:
+                return target >= since_date
+            return False
+
+        data = [d for d in data if _in_range(d)]
 
     # Sort
     if sort == "updated":
@@ -490,6 +536,8 @@ async def create(
     module: str | None = None,
     parent: str | None = None,
     estimate: Annotated[int | None, Parameter(alias="-e")] = None,
+    start_date: str | None = None,
+    target_date: str | None = None,
     description: Annotated[str | None, Parameter(alias="-d")] = None,
     json: bool = False,
 ) -> None:
@@ -515,6 +563,10 @@ async def create(
         Parent work item identifier (ABC-123) for creating sub-issues.
     estimate
         Story point estimate.
+    start_date
+        Start date (YYYY-MM-DD).
+    target_date
+        Due date (YYYY-MM-DD).
     description
         Work item description (plain text).
     """
@@ -542,6 +594,11 @@ async def create(
 
         if description:
             create_data.description_html = f"<p>{description}</p>"
+
+        if start_date:
+            create_data.start_date = start_date
+        if target_date:
+            create_data.target_date = target_date
 
         if priority:
             priority_map = {"0": "none", "1": "urgent", "2": "high", "3": "medium", "4": "low"}
@@ -625,6 +682,8 @@ async def update(
     clear_labels: bool = False,
     name: str | None = None,
     estimate: Annotated[int | None, Parameter(alias="-e")] = None,
+    start_date: str | None = None,
+    target_date: str | None = None,
     description: Annotated[str | None, Parameter(alias="-d")] = None,
     json: bool = False,
 ) -> None:
@@ -650,6 +709,10 @@ async def update(
         New title.
     estimate
         Story point estimate.
+    start_date
+        Start date (YYYY-MM-DD).
+    target_date
+        Due date (YYYY-MM-DD).
     description
         New description (plain text).
     """
@@ -676,6 +739,11 @@ async def update(
 
         if description:
             update_data.description_html = f"<p>{description}</p>"
+
+        if start_date:
+            update_data.start_date = start_date
+        if target_date:
+            update_data.target_date = target_date
 
         if priority:
             priority_map = {"0": "none", "1": "urgent", "2": "high", "3": "medium", "4": "low"}
