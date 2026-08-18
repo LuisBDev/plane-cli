@@ -104,6 +104,15 @@ def main() -> None:
     from planecli.cache import cache, set_no_cache, setup_cache
     from planecli.logging import setup_logging
 
+    # Force UTF-8 on stdout/stderr. Without this, Python on Windows uses the
+    # console codepage (cp1252/cp850) when stdout is a pipe, corrupting
+    # non-ASCII characters in --json output and cached data.
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8")
+        except (AttributeError, ValueError):
+            pass
+
     # Handle --verbose flag via sys.argv (before cyclopts parses)
     verbose = "--verbose" in sys.argv or "-v" in sys.argv
     if "--verbose" in sys.argv:

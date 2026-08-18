@@ -64,13 +64,13 @@ def test_get_cache_dir_linux_xdg():
 @patch("planecli.cache._url_hash", return_value="abc123")
 def test_cache_key_without_project(mock_hash):
     key = _cache_key("projects", "my-workspace")
-    assert key == "abc123:projects:my-workspace"
+    assert key == "abc123:v2:projects:my-workspace"
 
 
 @patch("planecli.cache._url_hash", return_value="abc123")
 def test_cache_key_with_project(mock_hash):
     key = _cache_key("states", "my-workspace", "proj-uuid")
-    assert key == "abc123:states:my-workspace:proj-uuid"
+    assert key == "abc123:v2:states:my-workspace:proj-uuid"
 
 
 # --- Tests for _cached_list ---
@@ -265,16 +265,16 @@ async def test_cached_get_me(mock_run_sdk, mock_create_client, mock_hash):
 @patch("planecli.cache._url_hash", return_value="abc123")
 async def test_invalidate_resource(mock_hash):
     """invalidate_resource removes the specific cache entry."""
-    await cache.set("abc123:states:ws:p1", [{"id": "s1"}], expire="10m")
+    await cache.set("abc123:v2:states:ws:p1", [{"id": "s1"}], expire="10m")
 
     # Verify it's there
-    cached = await cache.get("abc123:states:ws:p1")
+    cached = await cache.get("abc123:v2:states:ws:p1")
     assert cached is not None
 
     await invalidate_resource("states", "ws", "p1")
 
     # Verify it's gone
-    cached = await cache.get("abc123:states:ws:p1")
+    cached = await cache.get("abc123:v2:states:ws:p1")
     assert cached is None
 
 
@@ -329,14 +329,14 @@ async def test_cache_write_error_still_returns_data(mock_logger, mock_hash):
 @patch("planecli.cache._url_hash", return_value="abc123")
 def test_cache_key_with_item(mock_hash):
     key = _cache_key("comments", "my-workspace", "proj-uuid", "item-uuid")
-    assert key == "abc123:comments:my-workspace:proj-uuid:item-uuid"
+    assert key == "abc123:v2:comments:my-workspace:proj-uuid:item-uuid"
 
 
 @patch("planecli.cache._url_hash", return_value="abc123")
 def test_cache_key_item_ignored_without_project(mock_hash):
     # item_id only scopes when a project_id is also present
     key = _cache_key("comments", "my-workspace", None, "item-uuid")
-    assert key == "abc123:comments:my-workspace"
+    assert key == "abc123:v2:comments:my-workspace"
 
 
 @patch("planecli.cache._url_hash", return_value="abc123")
@@ -381,12 +381,12 @@ async def test_cached_list_comments_keys_per_item(mock_paginate, mock_create_cli
 
 @patch("planecli.cache._url_hash", return_value="abc123")
 async def test_invalidate_resource_with_item(mock_hash):
-    await cache.set("abc123:comments:ws:p1:item-1", [{"id": "c1"}], expire="1m")
-    assert await cache.get("abc123:comments:ws:p1:item-1") is not None
+    await cache.set("abc123:v2:comments:ws:p1:item-1", [{"id": "c1"}], expire="1m")
+    assert await cache.get("abc123:v2:comments:ws:p1:item-1") is not None
 
     await invalidate_resource("comments", "ws", "p1", "item-1")
 
-    assert await cache.get("abc123:comments:ws:p1:item-1") is None
+    assert await cache.get("abc123:v2:comments:ws:p1:item-1") is None
 
 
 # --- Tests for different workspaces/projects isolation ---

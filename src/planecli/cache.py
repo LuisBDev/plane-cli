@@ -77,7 +77,10 @@ def _cache_key(
 ) -> str:
     """Build a cache key, optionally scoped by project and work item."""
     url_hash = _url_hash()
-    key = f"{url_hash}:{resource}:{workspace}"
+    # Cache schema version: bump to invalidate all entries (e.g. after a
+    # corruption fix). v2 = UTF-8 output fix (previously corrupt entries
+    # could persist non-UTF-8 strings on Windows).
+    key = f"{url_hash}:v2:{resource}:{workspace}"
     if project_id:
         key += f":{project_id}"
         if item_id:
